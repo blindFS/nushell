@@ -9,14 +9,7 @@ use std::path::{is_separator, PathBuf, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR
 
 use super::{SemanticSuggestion, SuggestionKind};
 
-#[derive(Clone, Default)]
-pub struct DotNuCompletion {}
-
-impl DotNuCompletion {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
+pub struct DotNuCompletion;
 
 impl Completer for DotNuCompletion {
     fn fetch(
