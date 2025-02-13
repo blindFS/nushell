@@ -8,7 +8,7 @@ use nu_protocol::{
 };
 use nu_test_support::fs;
 use reedline::Suggestion;
-use std::path::MAIN_SEPARATOR;
+use std::{collections::HashSet, path::MAIN_SEPARATOR};
 
 fn create_default_context() -> EngineState {
     nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
@@ -209,6 +209,16 @@ pub fn match_suggestions(expected: &Vec<String>, suggestions: &Vec<Suggestion>) 
         .collect::<Vec<_>>();
 
     assert_eq!(expected, &suggestoins_str);
+}
+
+// make sure the suggestions contains the expected values
+pub fn include_suggestions(expected: &HashSet<&str>, suggestions: &[Suggestion]) {
+    let suggestoins_str = suggestions
+        .iter()
+        .map(|it| it.value.as_str())
+        .collect::<HashSet<_>>();
+
+    assert!(expected.is_subset(&suggestoins_str));
 }
 
 // append the separator to the converted path

@@ -7,12 +7,13 @@ use nu_protocol::{debugger::WithoutDebug, engine::StateWorkingSet, PipelineData}
 use reedline::{Completer, Suggestion};
 use rstest::{fixture, rstest};
 use std::{
+    collections::HashSet,
     path::{PathBuf, MAIN_SEPARATOR},
     sync::Arc,
 };
 use support::{
     completions_helpers::{new_dotnu_engine, new_partial_engine, new_quote_engine},
-    file, folder, match_suggestions, new_engine,
+    file, folder, include_suggestions, match_suggestions, new_engine,
 };
 
 #[fixture]
@@ -345,13 +346,13 @@ fn dotnu_completions() {
     match_suggestions(&expected, &suggestions);
 
     // Test special paths
-    #[cfg(windows)]
-    let completion_str = "use \\".to_string();
-    #[cfg(not(windows))]
+    // #[cfg(windows)]
+    // let completion_str = "use \\".to_string();
+    // #[cfg(not(windows))]
     let completion_str = "use /b".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
-    assert!(!suggestions.is_empty());
+    include_suggestions(&HashSet::from(["bin/"]), suggestions.as_slice());
 
     let completion_str = "use ~".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
