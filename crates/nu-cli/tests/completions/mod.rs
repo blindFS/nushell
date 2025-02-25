@@ -443,10 +443,10 @@ fn dotnu_completions() {
 
     // Test nested nu script
     #[cfg(windows)]
-    let completion_str = "use `.\\dir_module\\".to_string();
+    let completion_str = "use `.\\dir_module\\";
     #[cfg(not(windows))]
-    let completion_str = "use `./dir_module/".to_string();
-    let suggestions = completer.complete(&completion_str, completion_str.len());
+    let completion_str = "use `./dir_module/";
+    let suggestions = completer.complete(completion_str, completion_str.len());
 
     match_suggestions(
         &vec![
@@ -461,10 +461,10 @@ fn dotnu_completions() {
 
     // Test nested nu script, with ending '`'
     #[cfg(windows)]
-    let completion_str = "use `.\\dir_module\\sub module\\`".to_string();
+    let completion_str = "use `.\\dir_module\\sub module\\`";
     #[cfg(not(windows))]
-    let completion_str = "use `./dir_module/sub module/`".to_string();
-    let suggestions = completer.complete(&completion_str, completion_str.len());
+    let completion_str = "use `./dir_module/sub module/`";
+    let suggestions = completer.complete(completion_str, completion_str.len());
 
     match_suggestions(&vec!["sub.nu`"], &suggestions);
 
@@ -495,29 +495,29 @@ fn dotnu_completions() {
     ];
 
     // Test source completion
-    let completion_str = "source-env ".to_string();
-    let suggestions = completer.complete(&completion_str, completion_str.len());
+    let completion_str = "source-env ";
+    let suggestions = completer.complete(completion_str, completion_str.len());
 
     match_suggestions(&expected, &suggestions);
 
     // Test use completion
-    let completion_str = "use ".to_string();
-    let suggestions = completer.complete(&completion_str, completion_str.len());
+    let completion_str = "use ";
+    let suggestions = completer.complete(completion_str, completion_str.len());
 
     match_suggestions(&expected, &suggestions);
 
     // Test overlay use completion
-    let completion_str = "overlay use ".to_string();
-    let suggestions = completer.complete(&completion_str, completion_str.len());
+    let completion_str = "overlay use ";
+    let suggestions = completer.complete(completion_str, completion_str.len());
 
     match_suggestions(&expected, &suggestions);
 
     // Test special paths
     #[cfg(windows)]
     {
-        let completion_str = "use \\".to_string();
+        let completion_str = "use \\";
         let dir_content = read_dir("\\").unwrap();
-        let suggestions = completer.complete(&completion_str, completion_str.len());
+        let suggestions = completer.complete(completion_str, completion_str.len());
         match_dir_content_for_dotnu(dir_content, &suggestions);
     }
 
@@ -555,8 +555,8 @@ fn dotnu_completions_const_nu_lib_dirs() {
     // if `./` specified by user, file in `lib-dir*` should be ignored
     #[cfg(windows)]
     {
-        let completion_str = "use .\\asdf".to_string();
-        let suggestions = completer.complete(&completion_str, completion_str.len());
+        let completion_str = "use .\\asdf";
+        let suggestions = completer.complete(completion_str, completion_str.len());
         assert!(suggestions.is_empty());
     }
     let completion_str = "use ./asdf".to_string();
@@ -669,7 +669,7 @@ fn file_completions() {
             .map(|s| s.replace('\\', "/"))
             .collect();
 
-        match_suggestions(&expected_slash_paths, &slash_suggestions);
+        match_suggestions_by_string(&expected_slash_paths, &slash_suggestions);
     }
 
     // Match the results
@@ -703,7 +703,7 @@ fn file_completions() {
             .map(|s| s.replace('\\', "/"))
             .collect();
 
-        match_suggestions(&expected_slash_paths, &slash_suggestions);
+        match_suggestions_by_string(&expected_slash_paths, &slash_suggestions);
     }
 
     // Match the results
@@ -735,7 +735,7 @@ fn file_completions() {
             .map(|s| s.replace('\\', "/"))
             .collect();
 
-        match_suggestions(&expected_slash, &slash_suggestions);
+        match_suggestions_by_string(&expected_slash, &slash_suggestions);
     }
 
     // Match the results
@@ -835,42 +835,42 @@ fn file_completions_with_mixed_separators() {
     let target_dir = format!("ls {dir_str}/lib-dir1/");
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
-    match_suggestions(&expected_slash_paths, &suggestions);
+    match_suggestions_by_string(&expected_slash_paths, &suggestions);
 
     let target_dir = format!("cp {dir_str}\\lib-dir1/");
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
-    match_suggestions(&expected_slash_paths, &suggestions);
+    match_suggestions_by_string(&expected_slash_paths, &suggestions);
 
     let target_dir = format!("ls {dir_str}/lib-dir1\\/");
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
-    match_suggestions(&expected_slash_paths, &suggestions);
+    match_suggestions_by_string(&expected_slash_paths, &suggestions);
 
     let target_dir = format!("ls {dir_str}\\lib-dir1\\/");
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
-    match_suggestions(&expected_slash_paths, &suggestions);
+    match_suggestions_by_string(&expected_slash_paths, &suggestions);
 
     let target_dir = format!("ls {dir_str}\\lib-dir1\\");
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
-    match_suggestions(&expected_paths, &suggestions);
+    match_suggestions_by_string(&expected_paths, &suggestions);
 
     let target_dir = format!("ls {dir_str}/lib-dir1\\");
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
-    match_suggestions(&expected_paths, &suggestions);
+    match_suggestions_by_string(&expected_paths, &suggestions);
 
     let target_dir = format!("ls {dir_str}/lib-dir1/\\");
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
-    match_suggestions(&expected_paths, &suggestions);
+    match_suggestions_by_string(&expected_paths, &suggestions);
 
     let target_dir = format!("ls {dir_str}\\lib-dir1/\\");
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
-    match_suggestions(&expected_paths, &suggestions);
+    match_suggestions_by_string(&expected_paths, &suggestions);
 }
 
 #[test]
@@ -1501,12 +1501,12 @@ fn folder_with_directorycompletions() {
         let target_dir = format!("cd {dir_str}/");
         let slash_suggestions = completer.complete(&target_dir, target_dir.len());
 
-        let expected_slash_paths = expected_paths
+        let expected_slash_paths: Vec<_> = expected_paths
             .iter()
             .map(|s| s.replace('\\', "/"))
             .collect();
 
-        match_suggestions(&expected_slash_paths, &slash_suggestions);
+        match_suggestions_by_string(&expected_slash_paths, &slash_suggestions);
     }
 
     // Match the results
@@ -1544,12 +1544,12 @@ fn folder_with_directorycompletions_with_dots() {
         let target_dir = format!("cd {dir_str}/../");
         let slash_suggestions = completer.complete(&target_dir, target_dir.len());
 
-        let expected_slash_paths = expected_paths
+        let expected_slash_paths: Vec<_> = expected_paths
             .iter()
             .map(|s| s.replace('\\', "/"))
             .collect();
 
-        match_suggestions(&expected_slash_paths, &slash_suggestions);
+        match_suggestions_by_string(&expected_slash_paths, &slash_suggestions);
     }
 
     // Match the results
@@ -1613,7 +1613,7 @@ fn folder_with_directorycompletions_with_three_trailing_dots() {
         let target_dir = format!("cd {dir_str}/.../");
         let slash_suggestions = completer.complete(&target_dir, target_dir.len());
 
-        let expected_slash_paths = expected_paths
+        let expected_slash_paths: Vec<_> = expected_paths
             .iter()
             .map(|s| s.replace('\\', "/"))
             .collect();
@@ -1687,7 +1687,7 @@ fn folder_with_directorycompletions_do_not_collapse_dots() {
         let target_dir = format!("cd {dir_str}/../../");
         let slash_suggestions = completer.complete(&target_dir, target_dir.len());
 
-        let expected_slash_paths = expected_paths
+        let expected_slash_paths: Vec<_> = expected_paths
             .iter()
             .map(|s| s.replace('\\', "/"))
             .collect();
