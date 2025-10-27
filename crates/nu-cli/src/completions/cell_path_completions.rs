@@ -72,7 +72,7 @@ impl Completer for CellPathCompletion<'_> {
         for suggestion in get_suggestions_by_value(&value, current_span) {
             matcher.add_semantic_suggestion(suggestion);
         }
-        matcher.suggestion_results()
+        matcher.results()
     }
 }
 

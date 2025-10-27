@@ -18,14 +18,14 @@ use lru::LruCache;
 use nu_path::AbsolutePathBuf;
 use nu_utils::IgnoreCaseExt;
 use std::{
+    borrow::Cow,
     collections::HashMap,
     num::NonZeroUsize,
     path::PathBuf,
     sync::{
         Arc, Mutex, MutexGuard, PoisonError,
         atomic::{AtomicBool, AtomicU32, Ordering},
-        mpsc::Sender,
-        mpsc::channel,
+        mpsc::{Sender, channel},
     },
 };
 
@@ -738,14 +738,15 @@ impl EngineState {
 
     pub fn find_commands_by_predicate(
         &self,
-        mut predicate: impl FnMut(&[u8]) -> bool,
+        mut predicate: impl FnMut(&str) -> bool,
         ignore_deprecated: bool,
-    ) -> Vec<(DeclId, Vec<u8>, Option<String>, CommandType)> {
+    ) -> Vec<(DeclId, Cow<'_, str>, Option<String>, CommandType)> {
         let mut output = vec![];
 
         for overlay_frame in self.active_overlays(&[]).rev() {
             for (name, decl_id) in &overlay_frame.decls {
-                if overlay_frame.visibility.is_decl_id_visible(decl_id) && predicate(name) {
+                let name = String::from_utf8_lossy(name);
+                if overlay_frame.visibility.is_decl_id_visible(decl_id) && predicate(&name) {
                     let command = self.get_decl(*decl_id);
                     if ignore_deprecated && command.signature().category == Category::Removed {
                         continue;

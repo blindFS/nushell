@@ -158,11 +158,15 @@ impl<T: Completer> Completer for CustomCompletion<T> {
             for sugg in suggestions {
                 matcher.add_semantic_suggestion(sugg);
             }
-            matcher.suggestion_results()
+            matcher.results()
         } else {
             suggestions
                 .into_iter()
-                .filter(|sugg| matcher.matches(&sugg.suggestion.value))
+                .filter_map(|mut sugg| {
+                    let (is_match, match_indices) = matcher.matches(&sugg.suggestion.value);
+                    sugg.suggestion.match_indices = match_indices;
+                    is_match.then_some(sugg)
+                })
                 .collect()
         }
     }

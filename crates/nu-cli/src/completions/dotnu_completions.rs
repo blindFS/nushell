@@ -87,13 +87,7 @@ impl Completer for DotNuCompletion {
                     );
                 }
             }
-            completions.extend(
-                matcher
-                    .results()
-                    .into_iter()
-                    .map(|(s, _)| s)
-                    .collect::<Vec<_>>(),
-            );
+            completions.extend(matcher.results());
         }
 
         // Fetch the files

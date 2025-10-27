@@ -104,6 +104,7 @@ fn complete_rec(
                     }
                 }
 
+                // TODO: accurate `match_indices` for `substring`/`fuzzy` matching, #15887
                 matcher.add(entry_name, built);
             }
         }
@@ -123,7 +124,7 @@ fn complete_rec(
 
     if has_more {
         let mut completions = vec![];
-        for (built, _) in matcher.results() {
+        for built in matcher.results() {
             completions.extend(complete_rec(
                 &partial[1..],
                 &[built],
@@ -135,11 +136,7 @@ fn complete_rec(
         }
         completions
     } else {
-        matcher
-            .results()
-            .into_iter()
-            .map(|(built, _)| built)
-            .collect()
+        matcher.results()
     }
 }
 

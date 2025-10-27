@@ -10,6 +10,7 @@ use crate::{
 };
 use core::panic;
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
     sync::Arc,
@@ -744,9 +745,9 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn find_commands_by_predicate(
         &self,
-        mut predicate: impl FnMut(&[u8]) -> bool,
+        mut predicate: impl FnMut(&str) -> bool,
         ignore_deprecated: bool,
-    ) -> Vec<(DeclId, Vec<u8>, Option<String>, CommandType)> {
+    ) -> Vec<(DeclId, Cow<'_, str>, Option<String>, CommandType)> {
         let mut output = vec![];
 
         for scope_frame in self.delta.scope.iter().rev() {
@@ -754,7 +755,8 @@ impl<'a> StateWorkingSet<'a> {
                 let overlay_frame = scope_frame.get_overlay(*overlay_id);
 
                 for (name, decl_id) in &overlay_frame.decls {
-                    if overlay_frame.visibility.is_decl_id_visible(decl_id) && predicate(name) {
+                    let name = String::from_utf8_lossy(name);
+                    if overlay_frame.visibility.is_decl_id_visible(decl_id) && predicate(&name) {
                         let command = self.get_decl(*decl_id);
                         if ignore_deprecated && command.signature().category == Category::Removed {
                             continue;

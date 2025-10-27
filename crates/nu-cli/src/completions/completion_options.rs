@@ -5,6 +5,7 @@ use nucleo_matcher::{
     pattern::{Atom, AtomKind, CaseMatching, Normalization},
 };
 use std::{borrow::Cow, fmt::Display};
+use unicode_segmentation::UnicodeSegmentation;
 
 use super::SemanticSuggestion;
 
@@ -34,6 +35,7 @@ pub struct NuMatcher<'a, T> {
     options: &'a CompletionOptions,
     needle: String,
     state: State<T>,
+    character_to_trim: &'a [char],
 }
 
 enum State<T> {
@@ -56,20 +58,27 @@ struct FuzzyMatch<T> {
     item: T,
     haystack: String,
     score: u16,
-    match_indices: Vec<usize>,
 }
 
-const QUOTES: [char; 3] = ['"', '\'', '`'];
+type MatchIndices = Option<Vec<usize>>;
 
 /// Filters and sorts suggestions
 impl<T> NuMatcher<'_, T> {
+    pub fn new(needle: impl AsRef<str>, options: &CompletionOptions) -> NuMatcher<'_, T> {
+        NuMatcher::new_with_customized_trimming(needle, options, &['"', '\'', '`'])
+    }
     /// # Arguments
     ///
     /// * `needle` - The text to search for
-    pub fn new(needle: impl AsRef<str>, options: &CompletionOptions) -> NuMatcher<'_, T> {
+    /// * `character_to_trim` - Some extra characters that should be ignored while matching
+    pub fn new_with_customized_trimming<'a>(
+        needle: impl AsRef<str>,
+        options: &'a CompletionOptions,
+        character_to_trim: &'a [char],
+    ) -> NuMatcher<'a, T> {
         // NOTE: Should match `'bar baz'` when completing `foo "b<tab>`
         // https://github.com/nushell/nushell/issues/16860#issuecomment-3402016955
-        let needle = needle.as_ref().trim_matches(QUOTES);
+        let needle = needle.as_ref().trim_matches(character_to_trim);
         match options.match_algorithm {
             MatchAlgorithm::Prefix => {
                 let lowercase_needle = if options.case_sensitive {
@@ -81,6 +90,7 @@ impl<T> NuMatcher<'_, T> {
                     options,
                     needle: lowercase_needle,
                     state: State::Prefix { items: Vec::new() },
+                    character_to_trim,
                 }
             }
             MatchAlgorithm::Substring => {
@@ -93,6 +103,7 @@ impl<T> NuMatcher<'_, T> {
                     options,
                     needle: lowercase_needle,
                     state: State::Substring { items: Vec::new() },
+                    character_to_trim,
                 }
             }
             MatchAlgorithm::Fuzzy => {
@@ -119,6 +130,7 @@ impl<T> NuMatcher<'_, T> {
                         atom,
                         matches: Vec::new(),
                     },
+                    character_to_trim,
                 }
             }
         }
@@ -128,10 +140,10 @@ impl<T> NuMatcher<'_, T> {
     /// to the list of matches (if given).
     ///
     /// Helper to avoid code duplication between [NuMatcher::add] and [NuMatcher::matches].
-    fn matches_aux(&mut self, orig_haystack: &str, item: Option<T>) -> bool {
-        let haystack = orig_haystack.trim_start_matches(QUOTES);
+    fn matches_aux(&mut self, orig_haystack: &str, item: Option<T>) -> (bool, MatchIndices) {
+        let haystack = orig_haystack.trim_start_matches(self.character_to_trim);
         let offset = orig_haystack.len() - haystack.len();
-        let haystack = haystack.trim_end_matches(QUOTES);
+        let haystack = haystack.trim_end_matches(self.character_to_trim);
         match &mut self.state {
             State::Prefix { items } => {
                 let haystack_folded = if self.options.case_sensitive {
@@ -143,7 +155,10 @@ impl<T> NuMatcher<'_, T> {
                 if matches && let Some(item) = item {
                     items.push((haystack.to_string(), item));
                 }
-                matches
+                (
+                    matches,
+                    Some((offset..(offset + self.needle.graphemes(true).count())).collect()),
+                )
             }
             State::Substring { items } => {
                 let haystack_folded = if self.options.case_sensitive {
@@ -151,11 +166,20 @@ impl<T> NuMatcher<'_, T> {
                 } else {
                     Cow::Owned(haystack.to_folded_case())
                 };
-                let matches = haystack_folded.contains(self.needle.as_str());
-                if matches && let Some(item) = item {
+                let index = haystack_folded.find(self.needle.as_str());
+                let Some(idx) = index else {
+                    return (false, None);
+                };
+
+                if let Some(item) = item {
                     items.push((haystack.to_string(), item));
                 }
-                matches
+
+                let idx = haystack_folded[..idx].graphemes(true).count() + offset;
+                (
+                    true,
+                    Some((idx..(idx + self.needle.graphemes(true).count())).collect()),
+                )
             }
             State::Fuzzy {
                 matcher,
@@ -166,25 +190,22 @@ impl<T> NuMatcher<'_, T> {
                 let haystack_utf32 = Utf32Str::new(haystack, &mut haystack_buf);
                 let mut indices = Vec::new();
                 let Some(score) = atom.indices(haystack_utf32, matcher, &mut indices) else {
-                    return false;
+                    return (false, None);
                 };
+                let indices = indices
+                    .iter()
+                    .map(|i| {
+                        offset + usize::try_from(*i).expect("should be on at least a 32-bit system")
+                    })
+                    .collect();
                 if let Some(item) = item {
-                    let indices = indices
-                        .iter()
-                        .map(|i| {
-                            offset
-                                + usize::try_from(*i)
-                                    .expect("should be on at least a 32-bit system")
-                        })
-                        .collect();
                     items.push(FuzzyMatch {
                         item,
                         haystack: haystack.to_string(),
                         score,
-                        match_indices: indices,
                     });
                 }
-                true
+                (true, Some(indices))
             }
         }
     }
@@ -192,12 +213,12 @@ impl<T> NuMatcher<'_, T> {
     /// Add the given item if the given haystack matches the needle.
     ///
     /// Returns whether the item was added.
-    pub fn add(&mut self, haystack: impl AsRef<str>, item: T) -> bool {
+    pub fn add(&mut self, haystack: impl AsRef<str>, item: T) -> (bool, MatchIndices) {
         self.matches_aux(haystack.as_ref(), Some(item))
     }
 
     /// Returns whether the haystack matches the needle.
-    pub fn matches(&mut self, haystack: &str) -> bool {
+    pub fn matches(&mut self, haystack: &str) -> (bool, MatchIndices) {
         self.matches_aux(haystack, None)
     }
 
@@ -227,17 +248,15 @@ impl<T> NuMatcher<'_, T> {
         }
     }
 
-    pub fn results(mut self) -> Vec<(T, Option<Vec<usize>>)> {
+    pub fn results(mut self) -> Vec<T> {
         self.sort();
         match self.state {
-            State::Prefix { items, .. } | State::Substring { items, .. } => items
-                .into_iter()
-                .map(|(_, item)| (item, None))
-                .collect::<Vec<_>>(),
-            State::Fuzzy { matches: items, .. } => items
-                .into_iter()
-                .map(|mat| (mat.item, Some(mat.match_indices)))
-                .collect::<Vec<_>>(),
+            State::Prefix { items, .. } | State::Substring { items, .. } => {
+                items.into_iter().map(|(_, item)| item).collect::<Vec<_>>()
+            }
+            State::Fuzzy { matches: items, .. } => {
+                items.into_iter().map(|mat| mat.item).collect::<Vec<_>>()
+            }
         }
     }
 }
@@ -245,18 +264,24 @@ impl<T> NuMatcher<'_, T> {
 impl NuMatcher<'_, SemanticSuggestion> {
     pub fn add_semantic_suggestion(&mut self, sugg: SemanticSuggestion) -> bool {
         let value = sugg.suggestion.value.to_string();
-        self.add(value, sugg)
-    }
-
-    /// Get all the items that matched (sorted)
-    pub fn suggestion_results(self) -> Vec<SemanticSuggestion> {
-        self.results()
-            .into_iter()
-            .map(|(mut sugg, indices)| {
-                sugg.suggestion.match_indices = indices;
-                sugg
-            })
-            .collect()
+        let (is_added, match_indices) = self.add(value, sugg);
+        if !is_added {
+            return false;
+        }
+        // Update the suggestion's match indices
+        match &mut self.state {
+            State::Prefix { items } | State::Substring { items } => {
+                if let Some((_, sugg)) = items.last_mut() {
+                    sugg.suggestion.match_indices = match_indices;
+                }
+            }
+            State::Fuzzy { matches: items, .. } => {
+                if let Some(fuzzy_match) = items.last_mut() {
+                    fuzzy_match.item.suggestion.match_indices = match_indices;
+                }
+            }
+        }
+        true
     }
 }
 
@@ -317,7 +342,10 @@ impl Default for CompletionOptions {
 
 #[cfg(test)]
 mod test {
+    use reedline::Suggestion;
     use rstest::rstest;
+
+    use crate::SemanticSuggestion;
 
     use super::{CompletionOptions, MatchAlgorithm, NuMatcher};
 
@@ -345,7 +373,7 @@ mod test {
         };
         let mut matcher = NuMatcher::new(needle, &options);
         matcher.add(haystack, haystack);
-        let results: Vec<_> = matcher.results().iter().map(|r| r.0).collect();
+        let results: Vec<_> = matcher.results();
         if should_match {
             assert_eq!(vec![haystack], results);
         } else {
@@ -353,48 +381,53 @@ mod test {
         }
     }
 
-    #[test]
-    fn match_algorithm_fuzzy_sort_score() {
-        let options = CompletionOptions {
-            match_algorithm: MatchAlgorithm::Fuzzy,
-            ..Default::default()
-        };
-        let mut matcher = NuMatcher::new("fob", &options);
-        for item in ["foo/bar", "fob", "foo bar"] {
-            matcher.add(item, item);
-        }
+    #[rstest]
+    #[case::sort_score(
+        "fob",
+        vec!["foo/bar", "fob", "foo bar"],
         // Sort by score, then in alphabetical order
-        assert_eq!(
-            vec![
-                ("fob", Some(vec![0, 1, 2])),
-                ("foo bar", Some(vec![0, 1, 4])),
-                ("foo/bar", Some(vec![0, 1, 4]))
-            ],
-            matcher.results()
-        );
-    }
-
-    #[test]
-    fn match_algorithm_fuzzy_sort_strip() {
+        vec!["fob", "foo bar", "foo/bar"],
+        vec![vec![0, 1, 2], vec![0, 1, 4], vec![0, 1, 4]],
+    )]
+    #[case::sort_strip(
+        "'love spaces' ",
+        vec![ "'i love spaces'", "'i love spaces' so much", "'lovespaces' "],
+        vec!["'i love spaces' so much"],
+        vec![vec![3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]],
+    )]
+    fn match_algorithm_fuzzy_for_semantic_suggestions(
+        #[case] pattern: &str,
+        #[case] items_to_add: Vec<&str>,
+        #[case] match_values: Vec<&str>,
+        #[case] match_indices: Vec<Vec<usize>>,
+    ) {
         let options = CompletionOptions {
             match_algorithm: MatchAlgorithm::Fuzzy,
             ..Default::default()
         };
-        let mut matcher = NuMatcher::new("'love spaces' ", &options);
-        for item in [
-            "'i love spaces'",
-            "'i love spaces' so much",
-            "'lovespaces' ",
-        ] {
-            matcher.add(item, item);
+        let mut matcher = NuMatcher::new(pattern, &options);
+
+        for item in items_to_add {
+            matcher.add_semantic_suggestion(SemanticSuggestion {
+                suggestion: Suggestion {
+                    value: item.to_string(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
         }
-        // Make sure the spaces are respected
-        assert_eq!(
-            vec![(
-                "'i love spaces' so much",
-                Some(vec![3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
-            )],
-            matcher.results()
-        );
+
+        let results = matcher.results();
+        assert_eq!(match_values.len(), results.len());
+        assert_eq!(match_indices.len(), results.len());
+
+        for ((value, match_indices), sugg) in match_values
+            .iter()
+            .zip(match_indices.into_iter())
+            .zip(results.iter())
+        {
+            assert_eq!(sugg.suggestion.value, *value);
+            assert_eq!(sugg.suggestion.match_indices, Some(match_indices));
+        }
     }
 }

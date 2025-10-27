@@ -45,6 +45,7 @@ impl Completer for ExportableCompletion<'_> {
         let mut add_suggestion = |value: String,
                                   description: Option<String>,
                                   extra: Option<Vec<String>>,
+                                  match_indices: Option<Vec<usize>>,
                                   kind: SuggestionKind| {
             results.push(SemanticSuggestion {
                 suggestion: Suggestion {
@@ -52,6 +53,7 @@ impl Completer for ExportableCompletion<'_> {
                     span,
                     description,
                     extra,
+                    match_indices,
                     ..Suggestion::default()
                 },
                 kind: Some(kind),
@@ -62,21 +64,22 @@ impl Completer for ExportableCompletion<'_> {
         let module = working_set.get_module(self.module_id);
 
         for (name, decl_id) in &module.decls {
-            let name = String::from_utf8_lossy(name).to_string();
-            if matcher.matches(&name) {
+            let name = wrapped_name(String::from_utf8_lossy(name).to_string());
+            if let (true, match_indices) = matcher.matches(&name) {
                 let cmd = working_set.get_decl(*decl_id);
                 add_suggestion(
-                    wrapped_name(name),
+                    name,
                     Some(cmd.description().to_string()),
-                    None,
                     // `None` here avoids arguments being expanded by snippet edit style for lsp
+                    None,
+                    match_indices,
                     SuggestionKind::Command(cmd.command_type(), None),
                 );
             }
         }
         for (name, module_id) in &module.submodules {
-            let name = String::from_utf8_lossy(name).to_string();
-            if matcher.matches(&name) {
+            let name = wrapped_name(String::from_utf8_lossy(name).to_string());
+            if let (true, match_indices) = matcher.matches(&name) {
                 let comments = working_set.get_module_comments(*module_id).map(|spans| {
                     spans
                         .iter()
@@ -86,23 +89,25 @@ impl Completer for ExportableCompletion<'_> {
                         .collect::<Vec<String>>()
                 });
                 add_suggestion(
-                    wrapped_name(name),
+                    name,
                     Some("Submodule".into()),
                     comments,
+                    match_indices,
                     SuggestionKind::Module,
                 );
             }
         }
         for (name, var_id) in &module.constants {
-            let name = String::from_utf8_lossy(name).to_string();
-            if matcher.matches(&name) {
+            let name = wrapped_name(String::from_utf8_lossy(name).to_string());
+            if let (true, match_indices) = matcher.matches(&name) {
                 let var = working_set.get_variable(*var_id);
                 add_suggestion(
-                    wrapped_name(name),
+                    name,
                     var.const_val
                         .as_ref()
                         .and_then(|v| v.clone().coerce_into_string().ok()),
                     None,
+                    match_indices,
                     SuggestionKind::Variable,
                 );
             }
