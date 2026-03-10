@@ -103,18 +103,11 @@ impl CommandCompletion {
     }
 }
 
+#[typetag::serde]
 impl ArgumentCompleter for CommandCompletion {
     fn id(&self) -> String {
         "Command".to_string()
     }
-
-    #[doc(hidden)]
-    fn typetag_name(&self) -> &'static str {
-        "ArgumentCompleter::CommandCompletion"
-    }
-
-    #[doc(hidden)]
-    fn typetag_deserialize(&self) {}
 
     fn complete(
         &self,

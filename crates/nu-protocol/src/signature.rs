@@ -166,6 +166,10 @@ pub enum Completion {
     Command(DeclId),
     List(NuCow<&'static [&'static str], Vec<String>>),
     Builtin(Box<dyn ArgumentCompleter>),
+    // For completer command defined in a plugin,
+    // DeclId is unknown at signature definition,
+    // so we use a String as the command name
+    Plugin(String),
 }
 
 impl Completion {
@@ -194,6 +198,7 @@ impl Completion {
                     .into_value(span),
             },
             Completion::Builtin(completer) => completer.id().into_value(span),
+            Completion::Plugin(name) => name.clone().into_value(span),
         }
     }
 }

@@ -28,6 +28,8 @@ pub use env::Env;
 pub use view_span::ViewSpan;
 
 // Stream demos
+mod arg_completer;
+mod arg_completion;
 mod collect_bytes;
 mod echo;
 mod for_each;
@@ -35,6 +37,8 @@ mod generate;
 mod seq;
 mod sum;
 
+pub use arg_completer::ArgCompleter;
+pub use arg_completion::ArgCompletion;
 pub use collect_bytes::CollectBytes;
 pub use echo::Echo;
 pub use for_each::ForEach;

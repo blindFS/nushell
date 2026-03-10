@@ -78,7 +78,7 @@ pub enum SuggestionKind {
 /// A public trait for argument completer.
 /// Designed to work for both `nu_protocol::engine::Command` and `nu_plugin::plugin::PluginCommand`
 /// Need to bind a trait object to a parameter in command signature definition to use it.
-#[typetag::serde(tag = "type")]
+#[typetag::serde]
 pub trait ArgumentCompleter: std::fmt::Debug + DynClone + Send + Sync {
     /// Completes the argument value given the context
     fn complete(

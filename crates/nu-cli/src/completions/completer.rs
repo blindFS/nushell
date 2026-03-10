@@ -438,11 +438,11 @@ impl NuCompleter {
                                 })
                             });
                             // Prioritize custom completion results over everything else
-                            if let Some(custom_completer) = flag.and_then(|f| f.completion) {
+                            if let Some(argument_completer) = flag.and_then(|f| f.completion) {
                                 suggestions.splice(
                                     0..0,
-                                    self.custom_completion_helper(
-                                        custom_completer,
+                                    self.argument_value_completion_helper(
+                                        argument_completer,
                                         prefix_str,
                                         &ctx,
                                         if strip { pos } else { pos + 1 },
@@ -519,7 +519,7 @@ impl NuCompleter {
                         }
                         Argument::Positional(_) => {
                             // Prioritize custom completion results over everything else
-                            if let Some(custom_completer) = signature
+                            if let Some(argument_completer) = signature
                                 // For positional arguments, check PositionalArg
                                 // Find the right positional argument by index
                                 .get_positional(positional_arg_index)
@@ -527,8 +527,8 @@ impl NuCompleter {
                             {
                                 suggestions.splice(
                                     0..0,
-                                    self.custom_completion_helper(
-                                        custom_completer,
+                                    self.argument_value_completion_helper(
+                                        argument_completer,
                                         prefix_str,
                                         &ctx,
                                         if strip { pos } else { pos + 1 },
@@ -555,7 +555,6 @@ impl NuCompleter {
 
                             // Default argument value completion
                             let mut positional_value_completion = ArgValueCompletion {
-                                // arg_type: ArgType::Positional(positional_arg_index - 1),
                                 positional_id: Some(positional_arg_index),
                                 need_fallback: suggestions.is_empty(),
                                 completer: self,
@@ -682,20 +681,21 @@ impl NuCompleter {
         self.process_dynamic_completion(&command_completions, &ctx, None)
     }
 
-    fn custom_completion_helper(
+    fn argument_value_completion_helper(
         &self,
-        custom_completion: Completion,
+        argument_completer: Completion,
         input: &str,
         ctx: &Context,
         pos: usize,
         call: &Call,
     ) -> Vec<SemanticSuggestion> {
-        match custom_completion {
-            Completion::Command(decl_id) => {
-                let mut completer =
-                    CustomCompletion::new(decl_id, input.into(), pos - ctx.offset, FileCompletion);
-                self.process_completion(&mut completer, ctx)
-            }
+        let custom_completion_helper = |decl_id| {
+            let mut completer =
+                CustomCompletion::new(decl_id, input.into(), pos - ctx.offset, FileCompletion);
+            self.process_completion(&mut completer, ctx)
+        };
+        match argument_completer {
+            Completion::Command(decl_id) => custom_completion_helper(decl_id),
             Completion::List(list) => {
                 let mut completer = StaticCompletion::new(list);
                 self.process_completion(&mut completer, ctx)
@@ -703,6 +703,11 @@ impl NuCompleter {
             Completion::Builtin(arg_completer) => {
                 self.process_dynamic_completion(arg_completer.as_ref(), ctx, Some(call))
             }
+            Completion::Plugin(decl_name) => ctx
+                .working_set
+                .find_decl(decl_name.as_bytes())
+                .map(custom_completion_helper)
+                .unwrap_or_default(),
         }
     }
 

@@ -3,7 +3,7 @@ use nu_protocol::{
     Signature, Value,
 };
 
-use crate::{DynamicCompletionCall, EngineInterface, EvaluatedCall, Plugin};
+use crate::{EngineInterface, EvaluatedCall, Plugin};
 
 /// The API for a Nushell plugin command
 ///
