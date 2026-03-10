@@ -1,14 +1,15 @@
 use crate::completions::{
-    ArgValueCompletion, AttributableCompletion, AttributeCompletion, CellPathCompletion,
-    CommandCompletion, Completer, CustomCompletion, FileCompletion, FlagCompletion,
-    OperatorCompletion, VariableCompletion, base::SemanticSuggestion,
+    ArgValueCompletion, AttributableCompletion, AttributeCompletion, CellPathCompletion, Completer,
+    CustomCompletion, FileCompletion, FlagCompletion, OperatorCompletion, VariableCompletion,
+    base::SemanticSuggestion,
 };
 use nu_parser::parse;
 use nu_protocol::{
-    CommandWideCompleter, Completion, CompletionOptions, GetSpan, Signature, Span,
+    ArgumentCompleter, CommandCompletion, CommandWideCompleter, Completion, CompletionOptions,
+    GetSpan, Signature, Span,
     ast::{
-        Argument, Block, Expr, Expression, FindMapResult, PipelineRedirection, RedirectionTarget,
-        Traverse,
+        Argument, Block, Call, Expr, Expression, FindMapResult, PipelineRedirection,
+        RedirectionTarget, Traverse,
     },
     engine::{ArgType, EngineState, Stack, StateWorkingSet},
 };
@@ -446,6 +447,7 @@ impl NuCompleter {
                                         prefix_str,
                                         &ctx,
                                         if strip { pos } else { pos + 1 },
+                                        call,
                                     ),
                                 );
                                 // Fallback completion is already handled in `CustomCompletion`
@@ -532,6 +534,7 @@ impl NuCompleter {
                                         prefix_str,
                                         &ctx,
                                         if strip { pos } else { pos + 1 },
+                                        call,
                                     ),
                                 );
                                 // Fallback completion is already handled in `CustomCompletion`
@@ -672,13 +675,14 @@ impl NuCompleter {
         strip: bool,
     ) -> Vec<SemanticSuggestion> {
         let config = self.engine_state.get_config();
-        let mut command_completions = CommandCompletion {
+        let command_completions = CommandCompletion {
             internals,
             externals: !internals || (externals && config.completions.external.enable),
+            quote: false,
         };
         let (new_span, prefix) = strip_placeholder_if_any(working_set, &span, strip);
         let ctx = Context::new(working_set, new_span, prefix, offset);
-        self.process_completion(&mut command_completions, &ctx)
+        self.process_dynamic_completion(&command_completions, &ctx, None)
     }
 
     fn custom_completion_helper(
@@ -687,6 +691,7 @@ impl NuCompleter {
         input: &str,
         ctx: &Context,
         pos: usize,
+        call: &Call,
     ) -> Vec<SemanticSuggestion> {
         match custom_completion {
             Completion::Command(decl_id) => {
@@ -697,6 +702,9 @@ impl NuCompleter {
             Completion::List(list) => {
                 let mut completer = StaticCompletion::new(list);
                 self.process_completion(&mut completer, ctx)
+            }
+            Completion::Builtin(arg_completer) => {
+                self.process_dynamic_completion(arg_completer.as_ref(), ctx, Some(call))
             }
         }
     }
@@ -753,6 +761,26 @@ impl NuCompleter {
             ctx.offset,
             &options,
         )
+    }
+
+    // Process the completion for a given argument completer
+    pub(crate) fn process_dynamic_completion(
+        &self,
+        completer: &dyn ArgumentCompleter,
+        ctx: &Context,
+        call: Option<&Call>,
+    ) -> Vec<SemanticSuggestion> {
+        let reedline_span =
+            reedline::Span::new(ctx.span.start - ctx.offset, ctx.span.end - ctx.offset);
+        completer
+            .complete(
+                ctx.working_set,
+                call,
+                String::from_utf8_lossy(ctx.prefix).as_ref(),
+            )
+            .into_iter()
+            .map(|ds| SemanticSuggestion::from_dynamic_suggestion(ds, reedline_span, None))
+            .collect()
     }
 }
 

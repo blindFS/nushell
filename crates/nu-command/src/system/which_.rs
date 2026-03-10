@@ -1,4 +1,5 @@
 use nu_engine::{command_prelude::*, env};
+use nu_protocol::CommandCompletion;
 use nu_protocol::engine::CommandType;
 use std::collections::HashSet;
 use std::fs;
@@ -18,7 +19,16 @@ impl Command for Which {
         Signature::build("which")
             .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
-            .rest("applications", SyntaxShape::String, "Application(s).")
+            .param(
+                PositionalArg::new("applications", SyntaxShape::String)
+                    .desc("Application(s).")
+                    .completion(Completion::Builtin(Box::new(CommandCompletion {
+                        internals: true,
+                        externals: true,
+                        quote: true,
+                    })))
+                    .rest(),
+            )
             .switch("all", "List all executables.", Some('a'))
             .category(Category::System)
     }

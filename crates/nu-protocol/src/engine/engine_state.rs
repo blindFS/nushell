@@ -737,11 +737,11 @@ impl EngineState {
     }
 
     /// Apply a function to all commands. The function accepts a command name and its DeclId
-    pub fn traverse_commands(&self, mut f: impl FnMut(&[u8], DeclId)) {
+    pub fn traverse_commands(&self, mut f: impl FnMut(DeclId)) {
         for overlay_frame in self.active_overlays(&[]).rev() {
-            for (name, decl_id) in &overlay_frame.decls {
+            for decl_id in overlay_frame.decls.values() {
                 if overlay_frame.visibility.is_decl_id_visible(decl_id) {
-                    f(name, *decl_id);
+                    f(*decl_id);
                 }
             }
         }

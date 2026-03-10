@@ -1,8 +1,8 @@
 use crate::{
     FileCompletion, NuCompleter,
     completions::{
-        CommandCompletion, Completer, DirectoryCompletion, DotNuCompletion, EnvVarCompletion,
-        ExportableCompletion, SemanticSuggestion,
+        Completer, DirectoryCompletion, DotNuCompletion, EnvVarCompletion, ExportableCompletion,
+        SemanticSuggestion,
         completer::Context,
         matcher_helper::{add_semantic_suggestion, suggestion_results},
     },
@@ -180,20 +180,6 @@ impl<'a> Completer for ArgValueCompletion<'a> {
                     return self
                         .completer
                         .process_completion(&mut EnvVarCompletion, &ctx);
-                }
-                "which" => {
-                    let mut completer = CommandCompletion {
-                        internals: true,
-                        externals: true,
-                    };
-                    return self.completer.process_completion(&mut completer, &ctx);
-                }
-                "attr complete" => {
-                    let mut completer = CommandCompletion {
-                        internals: true,
-                        externals: false,
-                    };
-                    return self.completer.process_completion(&mut completer, &ctx);
                 }
                 _ => (),
             }

@@ -1,6 +1,6 @@
 use crate::{
-    BlockId, DeclId, DeprecationEntry, Example, FromValue, IntoValue, PipelineData, ShellError,
-    Span, SyntaxShape, Type, Value, VarId,
+    ArgumentCompleter, BlockId, DeclId, DeprecationEntry, Example, FromValue, IntoValue,
+    PipelineData, ShellError, Span, SyntaxShape, Type, Value, VarId,
     engine::{Call, Command, CommandType, EngineState, Stack},
 };
 use nu_derive_value::FromValue as DeriveFromValue;
@@ -165,6 +165,7 @@ pub enum CommandWideCompleter {
 pub enum Completion {
     Command(DeclId),
     List(NuCow<&'static [&'static str], Vec<String>>),
+    Builtin(Box<dyn ArgumentCompleter>),
 }
 
 impl Completion {
@@ -192,6 +193,7 @@ impl Completion {
                     .collect::<Vec<Value>>()
                     .into_value(span),
             },
+            Completion::Builtin(completer) => completer.id().into_value(span),
         }
     }
 }

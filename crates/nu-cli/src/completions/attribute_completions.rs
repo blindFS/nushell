@@ -25,15 +25,15 @@ impl Completer for AttributeCompletion {
         let mut matcher = NuMatcher::new(prefix, options, true);
 
         let attr_commands =
-            working_set.find_commands_by_predicate(|s| s.starts_with(b"attr "), true);
+            working_set.find_commands_by_predicate(|s| s.starts_with("attr "), true);
 
         for (decl_id, name, desc, ty) in attr_commands {
-            let name = name.strip_prefix(b"attr ").unwrap_or(&name);
+            let name = name.strip_prefix("attr ").unwrap_or(&name);
             add_semantic_suggestion(
                 &mut matcher,
                 SemanticSuggestion {
                     suggestion: Suggestion {
-                        value: String::from_utf8_lossy(name).into_owned(),
+                        value: name.into(),
                         description: desc,
                         span: reedline::Span {
                             start: span.start - offset,

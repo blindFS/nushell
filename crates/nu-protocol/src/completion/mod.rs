@@ -1,7 +1,13 @@
-use crate::{DeclId, Span, Type, ast, engine::CommandType};
+use crate::{
+    CompletionOptions, DeclId, Span, Type, ast,
+    engine::{CommandType, StateWorkingSet},
+};
+use dyn_clone::{DynClone, clone_trait_object};
 use serde::{Deserialize, Serialize};
 
+mod command_completions;
 mod matcher;
+pub use command_completions::CommandCompletion;
 pub use matcher::NuMatcher;
 
 /// A simple semantics suggestion just like nu_cli::SemanticSuggestion, but it
@@ -33,6 +39,12 @@ pub struct DynamicSuggestion {
     /// Replacement span in the buffer, if any.
     pub span: Option<Span>,
     pub kind: Option<SuggestionKind>,
+}
+
+impl DynamicSuggestion {
+    fn display_value(&self) -> &str {
+        self.display_override.as_ref().unwrap_or(&self.value)
+    }
 }
 
 impl Default for DynamicSuggestion {
@@ -73,4 +85,41 @@ pub struct DynamicCompletionCallRef<'a> {
     pub strip: bool,
     /// The position in input buffer, which is useful to find placeholder from arguments.
     pub pos: usize,
+}
+
+/// A public trait for argument completer.
+/// Designed to work for both `nu_protocol::engine::Command` and `nu_plugin::plugin::PluginCommand`
+/// Need to bind a trait object to a parameter in command signature definition to use it.
+#[typetag::serde(tag = "type")]
+pub trait ArgumentCompleter: std::fmt::Debug + DynClone + Send + Sync {
+    /// Completes the argument value given the context
+    fn complete(
+        &self,
+        working_set: &StateWorkingSet,
+        // Current command call with all arguments
+        call: Option<&ast::Call>,
+        // User input text that used for matching suggestions
+        prefix: &str,
+    ) -> Vec<DynamicSuggestion>;
+
+    /// Unique id for the trait object
+    fn id(&self) -> String;
+
+    fn get_completion_options(&self, working_set: &StateWorkingSet) -> CompletionOptions {
+        let config = working_set.permanent_state.get_config();
+
+        CompletionOptions {
+            case_sensitive: config.completions.case_sensitive,
+            match_algorithm: config.completions.algorithm,
+            sort: config.completions.sort,
+        }
+    }
+}
+
+clone_trait_object!(ArgumentCompleter);
+
+impl PartialEq for dyn ArgumentCompleter {
+    fn eq(&self, other: &Self) -> bool {
+        self.id() == other.id()
+    }
 }

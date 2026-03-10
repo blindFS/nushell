@@ -1,4 +1,4 @@
-use crate::{CompletionAlgorithm, CompletionOptions, CompletionSort};
+use crate::{CompletionAlgorithm, CompletionOptions, CompletionSort, DynamicSuggestion};
 use nu_utils::IgnoreCaseExt;
 use nucleo_matcher::{
     Config, Matcher, Utf32Str,
@@ -221,6 +221,24 @@ impl<T> NuMatcher<'_, T> {
                 .map(|mat| (mat.item, mat.match_indices))
                 .collect::<Vec<_>>(),
         }
+    }
+}
+
+impl NuMatcher<'_, DynamicSuggestion> {
+    pub fn add_dynamic_suggestion(&mut self, sugg: DynamicSuggestion) -> bool {
+        let value = sugg.display_value().to_string();
+        self.add(value, sugg)
+    }
+
+    /// Get all the items that matched (sorted)
+    pub fn suggestion_results(self) -> Vec<DynamicSuggestion> {
+        self.results()
+            .into_iter()
+            .map(|(mut sugg, indices)| {
+                sugg.match_indices = Some(indices);
+                sugg
+            })
+            .collect()
     }
 }
 

@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::CommandCompletion;
 
 #[derive(Clone)]
 pub struct AttrComplete;
@@ -12,10 +13,15 @@ impl Command for AttrComplete {
         Signature::build("attr complete")
             .input_output_type(Type::Nothing, Type::String)
             .allow_variants_without_examples(true)
-            .required(
-                "completer",
-                SyntaxShape::String,
-                "Name of the completion command.",
+            .param(
+                PositionalArg::new("completer", SyntaxShape::String)
+                    .desc("Name of the completion command.")
+                    .completion(Completion::Builtin(Box::new(CommandCompletion {
+                        internals: true,
+                        externals: false,
+                        quote: true,
+                    })))
+                    .required(),
             )
             .category(Category::Core)
     }

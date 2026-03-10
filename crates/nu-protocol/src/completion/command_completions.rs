@@ -1,33 +1,30 @@
 use std::collections::HashSet;
 
-use crate::completions::{
-    Completer,
-    matcher_helper::{add_semantic_suggestion, suggestion_results},
-};
-use nu_protocol::{
-    Category, CompletionOptions, NuMatcher, Span, SuggestionKind,
-    engine::{CommandType, Stack, StateWorkingSet},
-};
-use reedline::Suggestion;
+use serde::{Deserialize, Serialize};
 
-use super::SemanticSuggestion;
+use crate::{
+    ArgumentCompleter, Category, DynamicSuggestion, NuMatcher, SuggestionKind,
+    ast::Call,
+    engine::{CommandType, StateWorkingSet},
+};
 
-// TODO: Add a toggle for quoting multi word commands. Useful for: `which` and `attr complete`
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CommandCompletion {
     /// Whether to include internal commands
     pub internals: bool,
     /// Whether to include external commands
     pub externals: bool,
+    /// Whether to quote command names with spaces
+    pub quote: bool,
 }
 
 impl CommandCompletion {
     fn external_command_completion(
         &self,
         working_set: &StateWorkingSet,
-        sugg_span: reedline::Span,
         internal_suggs: HashSet<String>,
-        mut matcher: NuMatcher<SemanticSuggestion>,
-    ) -> Vec<SemanticSuggestion> {
+        mut matcher: NuMatcher<DynamicSuggestion>,
+    ) -> Vec<DynamicSuggestion> {
         let mut external_commands = HashSet::new();
 
         let paths_val = working_set.permanent_state.get_env_var("path");
@@ -70,19 +67,15 @@ impl CommandCompletion {
                             && Self::is_executable_command(item.path())
                         {
                             external_commands.insert(value.clone());
+                            let kind = Some(SuggestionKind::Command(CommandType::External, None));
                             matcher.add(
-                                name,
-                                SemanticSuggestion {
-                                    suggestion: Suggestion {
-                                        value,
-                                        span: sugg_span,
-                                        append_whitespace: true,
-                                        ..Default::default()
-                                    },
-                                    kind: Some(SuggestionKind::Command(
-                                        CommandType::External,
-                                        None,
-                                    )),
+                                name.clone(),
+                                DynamicSuggestion {
+                                    value,
+                                    display_override: Some(name),
+                                    kind,
+                                    append_whitespace: true,
+                                    ..Default::default()
                                 },
                             );
                         }
@@ -91,7 +84,7 @@ impl CommandCompletion {
             }
         }
 
-        suggestion_results(matcher)
+        matcher.suggestion_results()
     }
 
     fn is_executable_command(path: impl AsRef<std::path::Path>) -> bool {
@@ -110,58 +103,66 @@ impl CommandCompletion {
     }
 }
 
-impl Completer for CommandCompletion {
-    fn fetch(
-        &mut self,
-        working_set: &StateWorkingSet,
-        _stack: &Stack,
-        prefix: impl AsRef<str>,
-        span: Span,
-        offset: usize,
-        options: &CompletionOptions,
-    ) -> Vec<SemanticSuggestion> {
-        let mut res = Vec::new();
+impl ArgumentCompleter for CommandCompletion {
+    fn id(&self) -> String {
+        "Command".to_string()
+    }
 
-        let sugg_span = reedline::Span::new(span.start - offset, span.end - offset);
+    #[doc(hidden)]
+    fn typetag_name(&self) -> &'static str {
+        "ArgumentCompleter::CommandCompletion"
+    }
+
+    #[doc(hidden)]
+    fn typetag_deserialize(&self) {}
+
+    fn complete(
+        &self,
+        working_set: &StateWorkingSet,
+        _call: Option<&Call>,
+        prefix: &str,
+    ) -> Vec<DynamicSuggestion> {
+        let mut res = Vec::new();
+        let options = self.get_completion_options(working_set);
 
         let mut internal_suggs = HashSet::new();
         if self.internals {
-            let mut matcher = NuMatcher::new(prefix.as_ref(), options, true);
-            working_set.traverse_commands(|name, decl_id| {
-                let name = String::from_utf8_lossy(name);
+            let mut matcher = NuMatcher::new(prefix, &options, true);
+            working_set.traverse_commands(|decl_id| {
                 let command = working_set.get_decl(decl_id);
+                let name = command.name();
                 if command.signature().category == Category::Removed {
                     return;
                 }
-                let matched = add_semantic_suggestion(
-                    &mut matcher,
-                    SemanticSuggestion {
-                        suggestion: Suggestion {
-                            value: name.to_string(),
-                            description: Some(command.description().to_string()),
-                            span: sugg_span,
-                            append_whitespace: true,
-                            ..Suggestion::default()
-                        },
-                        kind: Some(SuggestionKind::Command(
-                            command.command_type(),
-                            Some(decl_id),
-                        )),
-                    },
-                );
+                let kind = Some(SuggestionKind::Command(
+                    command.command_type(),
+                    Some(decl_id),
+                ));
+                let value = if self.quote && name.contains(' ') {
+                    format!("`{name}`")
+                } else {
+                    name.to_string()
+                };
+                let matched = matcher.add_dynamic_suggestion(DynamicSuggestion {
+                    value,
+                    display_override: Some(name.to_string()),
+                    description: Some(command.description().to_string()),
+                    kind,
+                    append_whitespace: true,
+                    ..Default::default()
+                });
                 if matched {
                     internal_suggs.insert(name.to_string());
                 }
             });
-            res.extend(suggestion_results(matcher));
+            res.extend(matcher.suggestion_results());
         }
 
         if self.externals {
             let external_suggs = self.external_command_completion(
                 working_set,
-                sugg_span,
                 internal_suggs,
-                NuMatcher::new(prefix, options, true),
+                NuMatcher::new(prefix, &options, true),
             );
             res.extend(external_suggs);
         }
