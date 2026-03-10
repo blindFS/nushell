@@ -2,82 +2,37 @@ use crate::{
     FileCompletion, NuCompleter,
     completions::{
         Completer, DirectoryCompletion, DotNuCompletion, EnvVarCompletion, ExportableCompletion,
-        SemanticSuggestion,
-        completer::Context,
-        matcher_helper::{add_semantic_suggestion, suggestion_results},
+        SemanticSuggestion, completer::Context,
     },
 };
 use nu_parser::parse_module_file_or_dir;
 use nu_protocol::{
-    CompletionOptions, DynamicCompletionCallRef, NuMatcher, Span,
+    CompletionOptions, Span,
     ast::{Argument, Call, Expr, Expression, ListItem},
-    engine::{ArgType, Stack, StateWorkingSet},
+    engine::{Stack, StateWorkingSet},
 };
 
 pub struct ArgValueCompletion<'a> {
     pub call: &'a Call,
-    pub arg_type: ArgType<'a>,
+    pub positional_id: Option<usize>,
     pub need_fallback: bool,
     pub completer: &'a NuCompleter,
     pub arg_idx: usize,
     pub pos: usize,
-    pub strip: bool,
 }
 
 impl<'a> Completer for ArgValueCompletion<'a> {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
-        stack: &Stack,
+        _stack: &Stack,
         prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
-        options: &CompletionOptions,
+        _options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         // if user input `--foo abc`, then the `prefix` here is abc.
-        let mut matcher = NuMatcher::new(prefix.as_ref(), options, true);
-
         let decl = working_set.get_decl(self.call.decl_id);
-        let mut stack = stack.to_owned();
-
-        let dynamic_completion_call = DynamicCompletionCallRef {
-            call: self.call,
-            strip: self.strip,
-            pos: self.pos,
-        };
-        match decl.get_dynamic_completion(
-            working_set.permanent_state,
-            &mut stack,
-            dynamic_completion_call,
-            &self.arg_type,
-            #[expect(deprecated, reason = "internal usage")]
-            nu_protocol::engine::ExperimentalMarker,
-        ) {
-            Ok(Some(items)) => {
-                for i in items {
-                    let result_span = i.span.unwrap_or(span);
-                    let suggestion = SemanticSuggestion::from_dynamic_suggestion(
-                        i,
-                        reedline::Span {
-                            start: result_span.start - offset,
-                            end: result_span.end - offset,
-                        },
-                        None,
-                    );
-                    add_semantic_suggestion(&mut matcher, suggestion);
-                }
-                return suggestion_results(matcher);
-            }
-            Err(e) => {
-                log::error!(
-                    "error on fetching dynamic suggestion on {} with {:?}: {e}",
-                    decl.name(),
-                    self.arg_type
-                );
-            }
-            // fallback to type based completion, file completion, etc.
-            Ok(None) => (),
-        }
 
         let command_head = decl.name();
         let ctx = Context::new(working_set, span, prefix.as_ref().as_bytes(), offset);
@@ -90,7 +45,7 @@ impl<'a> Completer for ArgValueCompletion<'a> {
             .map(|e| &e.expr);
 
         // TODO: Move command specific completion logic to its `get_dynamic_completion`
-        if let ArgType::Positional(positional_arg_index) = self.arg_type {
+        if let Some(positional_arg_index) = self.positional_id {
             match command_head {
                 // complete module file/directory
                 "use" | "export use" | "overlay use" | "source-env"

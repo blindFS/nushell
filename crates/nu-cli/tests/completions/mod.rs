@@ -188,10 +188,6 @@ fn fuzzy_alpha_sort_completer() -> NuCompleter {
 #[case::flags_in_nested_block2("somecmd | lines | each { tst -}", Some(30), vec!["--help", "--mod", "-h", "-s"])]
 #[case::flags_in_incomplete_nested_block("somecmd | lines | each { tst -", None, vec!["--help", "--mod", "-h", "-s"])]
 #[case::flags_in_deeply_nested_block("somecmd | lines | each { print ([each (print) (tst -)]) }", Some(52), vec!["--help", "--mod", "-h", "-s"])]
-#[case::dynamic_long_flag_value("fake-cmd --flag ", None, vec!["flag:0", "flag:1", "flag:2"])]
-#[case::dynamic_short_flag_value("fake-cmd arg0:0 -f ", None, vec!["flag:0", "flag:1", "flag:2"])]
-#[case::dynamic_1st_positional("fake-cmd -f flag:0 ", None, vec!["arg0:0"])]
-#[case::dynamic_2nd_positional("fake-cmd -f flag:0 foo --unknown ", None, vec!["arg1:0", "arg1:1"])]
 fn misc_command_argument_completions(
     mut completer: NuCompleter,
     #[case] input: &str,

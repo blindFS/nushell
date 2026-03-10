@@ -75,18 +75,6 @@ pub enum SuggestionKind {
     Variable,
 }
 
-/// A simple wrapper for [`ast::Call`] which contains additional context about completion.
-/// It's used only at nushell side, to avoid unnecessary clone.
-#[derive(Clone, Debug, PartialEq)]
-pub struct DynamicCompletionCallRef<'a> {
-    /// the real call, which is generated during parse time.
-    pub call: &'a ast::Call,
-    /// Indicates if there is a placeholder in input buffer.
-    pub strip: bool,
-    /// The position in input buffer, which is useful to find placeholder from arguments.
-    pub pos: usize,
-}
-
 /// A public trait for argument completer.
 /// Designed to work for both `nu_protocol::engine::Command` and `nu_plugin::plugin::PluginCommand`
 /// Need to bind a trait object to a parameter in command signature definition to use it.

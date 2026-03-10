@@ -1,6 +1,6 @@
 use nu_protocol::{
-    DynamicSuggestion, Example, IntoSpanned, LabeledError, PipelineData, PluginExample,
-    PluginSignature, ShellError, Signature, Value, engine::ArgType,
+    Example, IntoSpanned, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError,
+    Signature, Value,
 };
 
 use crate::{DynamicCompletionCall, EngineInterface, EvaluatedCall, Plugin};
@@ -151,28 +151,6 @@ pub trait PluginCommand: Sync {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError>;
-
-    #[allow(unused_variables)]
-    /// Get completion items for `arg_type`.
-    ///
-    /// It's useful when you want to get auto completion items of a flag or positional argument
-    /// dynamically.
-    ///
-    /// The implementation can returns 3 types of return values:
-    /// - None: I couldn't find any suggestions, please fall back to default completions
-    /// - Some(vec![]): there are no suggestions
-    /// - Some(vec![item1, item2]): item1 and item2 are available
-    #[expect(deprecated, reason = "forwarding experimental status")]
-    fn get_dynamic_completion(
-        &self,
-        plugin: &Self::Plugin,
-        engine: &EngineInterface,
-        call: DynamicCompletionCall,
-        arg_type: ArgType,
-        _experimental: nu_protocol::engine::ExperimentalMarker,
-    ) -> Option<Vec<DynamicSuggestion>> {
-        None
-    }
 }
 
 /// The API for a simple Nushell plugin command
@@ -309,28 +287,6 @@ pub trait SimplePluginCommand: Sync {
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError>;
-
-    /// Get completion items for `arg_type`.
-    ///
-    /// It's useful when you want to get auto completion items of a flag or positional argument
-    /// dynamically.
-    ///
-    /// The implementation can returns 3 types of return values:
-    /// - None: I couldn't find any suggestions, please fall back to default completions
-    /// - Some(vec![]): there are no suggestions
-    /// - Some(vec![item1, item2]): item1 and item2 are available
-    #[allow(unused_variables)]
-    #[expect(deprecated, reason = "forwarding experimental status")]
-    fn get_dynamic_completion(
-        &self,
-        plugin: &Self::Plugin,
-        engine: &EngineInterface,
-        call: DynamicCompletionCall,
-        arg_type: ArgType,
-        _experimental: nu_protocol::engine::ExperimentalMarker,
-    ) -> Option<Vec<DynamicSuggestion>> {
-        None
-    }
 }
 
 /// All [`SimplePluginCommand`]s can be used as [`PluginCommand`]s, but input streams will be fully
@@ -379,26 +335,6 @@ where
 
     fn description(&self) -> &str {
         <Self as SimplePluginCommand>::description(self)
-    }
-
-    #[allow(unused_variables)]
-    #[allow(deprecated, reason = "internal usage")]
-    fn get_dynamic_completion(
-        &self,
-        plugin: &Self::Plugin,
-        engine: &EngineInterface,
-        call: DynamicCompletionCall,
-        arg_type: ArgType,
-        experimental: nu_protocol::engine::ExperimentalMarker,
-    ) -> Option<Vec<DynamicSuggestion>> {
-        <Self as SimplePluginCommand>::get_dynamic_completion(
-            self,
-            plugin,
-            engine,
-            call,
-            arg_type,
-            experimental,
-        )
     }
 }
 

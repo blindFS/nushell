@@ -11,10 +11,9 @@ use nu_protocol::{
         Argument, Block, Call, Expr, Expression, FindMapResult, PipelineRedirection,
         RedirectionTarget, Traverse,
     },
-    engine::{ArgType, EngineState, Stack, StateWorkingSet},
+    engine::{EngineState, Stack, StateWorkingSet},
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
-use std::borrow::Cow;
 use std::sync::Arc;
 
 use super::{StaticCompletion, custom_completions::CommandWideCompletion};
@@ -470,7 +469,7 @@ impl NuCompleter {
                             }
 
                             let mut flag_value_completion = ArgValueCompletion {
-                                arg_type: ArgType::Flag(Cow::from(name.as_ref().item.as_str())),
+                                positional_id: None,
                                 // flag value doesn't need to fallback, just fill a
                                 // temp value false.
                                 need_fallback: false,
@@ -478,7 +477,6 @@ impl NuCompleter {
                                 call,
                                 arg_idx,
                                 pos,
-                                strip,
                             };
                             suggestions.splice(
                                 0..0,
@@ -558,13 +556,12 @@ impl NuCompleter {
                             // Default argument value completion
                             let mut positional_value_completion = ArgValueCompletion {
                                 // arg_type: ArgType::Positional(positional_arg_index - 1),
-                                arg_type: ArgType::Positional(positional_arg_index),
+                                positional_id: Some(positional_arg_index),
                                 need_fallback: suggestions.is_empty(),
                                 completer: self,
                                 call,
                                 arg_idx,
                                 pos,
-                                strip,
                             };
 
                             suggestions.splice(

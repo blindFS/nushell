@@ -22,13 +22,9 @@ mod tests;
 pub mod test_util;
 
 use nu_protocol::{
-    BlockId, ByteStreamType, Config, DeclId, DynamicSuggestion, LabeledError, PipelineData,
-    PipelineMetadata, PluginMetadata, PluginSignature, ShellError, SignalAction, Span, Spanned,
-    Value, ast,
-    ast::Operator,
-    casing::Casing,
-    engine::{ArgType, Closure},
-    ir::IrBlock,
+    BlockId, ByteStreamType, Config, DeclId, LabeledError, PipelineData, PipelineMetadata,
+    PluginMetadata, PluginSignature, ShellError, SignalAction, Span, Spanned, Value, ast::Operator,
+    casing::Casing, engine::Closure, ir::IrBlock,
 };
 use nu_utils::SharedCow;
 use serde::{Deserialize, Serialize};
@@ -59,46 +55,6 @@ pub struct CallInfo<D> {
     pub call: EvaluatedCall,
     /// Pipeline input. This is usually [`nu_protocol::PipelineData`] or [`PipelineDataHeader`]
     pub input: D,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum GetCompletionArgType {
-    Flag(String),
-    Positional(usize),
-}
-
-impl<'a> From<GetCompletionArgType> for ArgType<'a> {
-    fn from(value: GetCompletionArgType) -> Self {
-        match value {
-            GetCompletionArgType::Flag(flag_name) => {
-                ArgType::Flag(std::borrow::Cow::from(flag_name))
-            }
-            GetCompletionArgType::Positional(idx) => ArgType::Positional(idx),
-        }
-    }
-}
-
-/// A simple wrapper for [`ast::Call`] which contains additional context about completion.
-/// It's used in plugin side.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct DynamicCompletionCall {
-    /// the real call, which is generated during parse time.
-    pub call: ast::Call,
-    /// Indicates if there is a placeholder in input buffer.
-    pub strip: bool,
-    /// The position in input buffer, which is useful to find placeholder from arguments.
-    pub pos: usize,
-}
-
-/// Information about `get_dynamic_completion` of a plugin call invocation.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct GetCompletionInfo {
-    /// The name of the command to be run.
-    pub name: String,
-    /// The flag name to get completion items.
-    pub arg_type: GetCompletionArgType,
-    /// Information about the invocation.
-    pub call: DynamicCompletionCall,
 }
 
 impl<D> CallInfo<D> {
@@ -205,7 +161,6 @@ pub enum PluginCall<D> {
     Metadata,
     Signature,
     Run(CallInfo<D>),
-    GetCompletion(GetCompletionInfo),
     CustomValueOp(Spanned<PluginCustomValue>, CustomValueOp),
 }
 
@@ -219,7 +174,6 @@ impl<D> PluginCall<D> {
         Ok(match self {
             PluginCall::Metadata => PluginCall::Metadata,
             PluginCall::Signature => PluginCall::Signature,
-            PluginCall::GetCompletion(flag_name) => PluginCall::GetCompletion(flag_name),
             PluginCall::Run(call) => PluginCall::Run(call.map_data(f)?),
             PluginCall::CustomValueOp(custom_value, op) => {
                 PluginCall::CustomValueOp(custom_value, op)
@@ -232,7 +186,6 @@ impl<D> PluginCall<D> {
         match self {
             PluginCall::Metadata => None,
             PluginCall::Signature => None,
-            PluginCall::GetCompletion(_) => None,
             PluginCall::Run(CallInfo { call, .. }) => Some(call.head),
             PluginCall::CustomValueOp(val, _) => Some(val.span),
         }
@@ -417,7 +370,6 @@ pub enum PluginCallResponse<D> {
     Metadata(PluginMetadata),
     Signature(Vec<PluginSignature>),
     Ordering(Option<Ordering>),
-    CompletionItems(Option<Vec<DynamicSuggestion>>),
     PipelineData(D),
 }
 
@@ -434,9 +386,6 @@ impl<D> PluginCallResponse<D> {
             PluginCallResponse::Metadata(meta) => PluginCallResponse::Metadata(meta),
             PluginCallResponse::Signature(sigs) => PluginCallResponse::Signature(sigs),
             PluginCallResponse::Ordering(ordering) => PluginCallResponse::Ordering(ordering),
-            PluginCallResponse::CompletionItems(items) => {
-                PluginCallResponse::CompletionItems(items)
-            }
             PluginCallResponse::PipelineData(input) => PluginCallResponse::PipelineData(f(input)?),
         })
     }
