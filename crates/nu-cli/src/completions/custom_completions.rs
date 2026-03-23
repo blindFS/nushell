@@ -122,25 +122,25 @@ fn read_span_field(span: &SharedCow<Record>, field: &str) -> Option<usize> {
     Some(val)
 }
 
-pub struct CustomCompletion<T: Completer> {
+pub struct CustomCompletion {
     decl_id: DeclId,
     line: String,
     line_pos: usize,
-    fallback: T,
+    pub need_fallback: bool,
 }
 
-impl<T: Completer> CustomCompletion<T> {
-    pub fn new(decl_id: DeclId, line: String, line_pos: usize, fallback: T) -> Self {
+impl CustomCompletion {
+    pub fn new(decl_id: DeclId, line: String, line_pos: usize, need_fallback: bool) -> Self {
         Self {
             decl_id,
             line,
             line_pos,
-            fallback,
+            need_fallback,
         }
     }
 }
 
-impl<T: Completer> Completer for CustomCompletion<T> {
+impl Completer for CustomCompletion {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
@@ -259,14 +259,8 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                     offset,
                 ),
                 Value::Nothing { .. } => {
-                    return self.fallback.fetch(
-                        working_set,
-                        stack,
-                        prefix,
-                        span,
-                        offset,
-                        orig_options,
-                    );
+                    self.need_fallback = true;
+                    vec![]
                 }
                 _ => {
                     log::error!(
