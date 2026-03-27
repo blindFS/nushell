@@ -4252,17 +4252,22 @@ pub fn parse_signature_helper(
                                     ))
                                 }
 
-                                if !is_external {
+                                let var_id = if is_external {
+                                    None
+                                } else {
                                     ensure_not_reserved_variable_name(
                                         working_set,
                                         &variable_name,
                                         span,
                                     );
-                                }
-
-                                let var_id =
-                                    working_set.add_variable_without_scope(span, Type::Bool, false);
-                                pending_scope_inserts.push((variable_name, var_id));
+                                    let var_id = working_set.add_variable_without_scope(
+                                        span,
+                                        Type::Bool,
+                                        false,
+                                    );
+                                    pending_scope_inserts.push((variable_name, var_id));
+                                    Some(var_id)
+                                };
 
                                 // If there's no short flag, exit now. Otherwise, parse it.
                                 if flags.len() == 1 {
@@ -4273,7 +4278,7 @@ pub fn parse_signature_helper(
                                             long,
                                             short: None,
                                             required: false,
-                                            var_id: Some(var_id),
+                                            var_id,
                                             default_value: None,
                                             completion: None,
                                         },
@@ -4313,7 +4318,7 @@ pub fn parse_signature_helper(
                                                 long,
                                                 short: Some(chars[0]),
                                                 required: false,
-                                                var_id: Some(var_id),
+                                                var_id,
                                                 default_value: None,
                                                 completion: None,
                                             },
@@ -4346,17 +4351,22 @@ pub fn parse_signature_helper(
                                     ))
                                 }
 
-                                if !is_external {
+                                let var_id = if is_external {
+                                    None
+                                } else {
                                     ensure_not_reserved_variable_name(
                                         working_set,
                                         &variable_name,
                                         span,
                                     );
-                                }
-
-                                let var_id =
-                                    working_set.add_variable_without_scope(span, Type::Bool, false);
-                                pending_scope_inserts.push((variable_name, var_id));
+                                    let var_id = working_set.add_variable_without_scope(
+                                        span,
+                                        Type::Bool,
+                                        false,
+                                    );
+                                    pending_scope_inserts.push((variable_name, var_id));
+                                    Some(var_id)
+                                };
 
                                 args.push(Arg::Flag {
                                     flag: Flag {
@@ -4365,7 +4375,7 @@ pub fn parse_signature_helper(
                                         long: String::new(),
                                         short: Some(chars[0]),
                                         required: false,
-                                        var_id: Some(var_id),
+                                        var_id,
                                         default_value: None,
                                         completion: None,
                                     },
@@ -4423,24 +4433,29 @@ pub fn parse_signature_helper(
                                     ))
                                 }
 
-                                if !is_external {
+                                let var_id = if is_external {
+                                    None
+                                } else {
                                     ensure_not_reserved_variable_name(
                                         working_set,
                                         optional_param,
                                         span,
                                     );
-                                }
-
-                                let var_id =
-                                    working_set.add_variable_without_scope(span, Type::Any, false);
-                                pending_scope_inserts.push((optional_param.to_vec(), var_id));
+                                    let var_id = working_set.add_variable_without_scope(
+                                        span,
+                                        Type::Any,
+                                        false,
+                                    );
+                                    pending_scope_inserts.push((optional_param.to_vec(), var_id));
+                                    Some(var_id)
+                                };
 
                                 args.push(Arg::Positional {
                                     arg: PositionalArg {
                                         desc: String::new(),
                                         name,
                                         shape: SyntaxShape::Any,
-                                        var_id: Some(var_id),
+                                        var_id,
                                         default_value: None,
                                         completion: None,
                                     },
@@ -4461,19 +4476,24 @@ pub fn parse_signature_helper(
                                     ))
                                 }
 
-                                if !is_external {
+                                let var_id = if is_external {
+                                    None
+                                } else {
                                     ensure_not_reserved_variable_name(working_set, contents, span);
-                                }
-
-                                let var_id =
-                                    working_set.add_variable_without_scope(span, Type::Any, false);
-                                pending_scope_inserts.push((contents_vec, var_id));
+                                    let var_id = working_set.add_variable_without_scope(
+                                        span,
+                                        Type::Any,
+                                        false,
+                                    );
+                                    pending_scope_inserts.push((contents_vec, var_id));
+                                    Some(var_id)
+                                };
 
                                 args.push(Arg::RestPositional(PositionalArg {
                                     desc: String::new(),
                                     name,
                                     shape: SyntaxShape::Any,
-                                    var_id: Some(var_id),
+                                    var_id,
                                     default_value: None,
                                     completion: None,
                                 }));
@@ -4491,17 +4511,22 @@ pub fn parse_signature_helper(
                                     ))
                                 }
 
-                                if !is_external {
+                                let var_id = if is_external {
+                                    None
+                                } else {
                                     ensure_not_reserved_variable_name(
                                         working_set,
                                         &contents_vec,
                                         span,
                                     );
-                                }
-
-                                let var_id =
-                                    working_set.add_variable_without_scope(span, Type::Any, false);
-                                pending_scope_inserts.push((contents_vec, var_id));
+                                    let var_id = working_set.add_variable_without_scope(
+                                        span,
+                                        Type::Any,
+                                        false,
+                                    );
+                                    pending_scope_inserts.push((contents_vec, var_id));
+                                    Some(var_id)
+                                };
 
                                 // Positional arg, required
                                 args.push(Arg::Positional {
@@ -4509,7 +4534,7 @@ pub fn parse_signature_helper(
                                         desc: String::new(),
                                         name,
                                         shape: SyntaxShape::Any,
-                                        var_id: Some(var_id),
+                                        var_id,
                                         default_value: None,
                                         completion: None,
                                     },
@@ -4554,13 +4579,15 @@ pub fn parse_signature_helper(
                                         required: _,
                                         type_annotated,
                                     } => {
-                                        working_set.set_variable_type(
-                                            var_id.expect(
-                                                "internal error: all custom parameters must have \
-                                                 var_ids",
-                                            ),
-                                            syntax_shape.to_type(),
-                                        );
+                                        if !is_external {
+                                            working_set.set_variable_type(
+                                                var_id.expect(
+                                                    "internal error: all custom parameters must have \
+                                                    var_ids",
+                                                ),
+                                                syntax_shape.to_type(),
+                                            );
+                                        }
                                         *completion = completer;
                                         *shape = syntax_shape;
                                         *type_annotated = true;
@@ -4571,13 +4598,15 @@ pub fn parse_signature_helper(
                                         completion,
                                         ..
                                     }) => {
-                                        working_set.set_variable_type(
-                                            var_id.expect(
-                                                "internal error: all custom parameters must have \
-                                                 var_ids",
-                                            ),
-                                            Type::List(Box::new(syntax_shape.to_type())),
-                                        );
+                                        if !is_external {
+                                            working_set.set_variable_type(
+                                                var_id.expect(
+                                                    "internal error: all custom parameters must have \
+                                                    var_ids",
+                                                ),
+                                                Type::List(Box::new(syntax_shape.to_type())),
+                                            );
+                                        }
                                         *completion = completer;
                                         *shape = syntax_shape;
                                     }
@@ -4591,7 +4620,9 @@ pub fn parse_signature_helper(
                                             },
                                         type_annotated,
                                     } => {
-                                        working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
+                                        if !is_external {
+                                            working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
+                                        }
                                         if syntax_shape == SyntaxShape::Boolean {
                                             working_set.error(ParseError::LabeledError(
                                                 "Type annotations are not allowed for boolean switches.".to_string(),
@@ -4608,7 +4639,14 @@ pub fn parse_signature_helper(
                             parse_mode = ParseMode::AfterType;
                         }
                         ParseMode::DefaultValue => {
-                            if let Some(last) = args.last_mut() {
+                            if is_external {
+                                working_set.error(ParseError::LabeledError(
+                                    "Default values are not allowed for external commands."
+                                        .to_string(),
+                                    "Remove the default value.".to_string(),
+                                    span,
+                                ));
+                            } else if let Some(last) = args.last_mut() {
                                 let expression = parse_value(working_set, span, &SyntaxShape::Any);
 
                                 //TODO check if we're replacing a custom parameter already
