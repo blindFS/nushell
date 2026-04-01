@@ -133,7 +133,7 @@ fn flatten_pipeline_element_into(
 ) {
     if let Some(span) = pipeline_element.pipe {
         // NOTE: redirection pipes, e.g. `err>|`/`o+e>|` are parsed as both pipe and redirection,
-        // we split them into 2 shapes here.
+        // we split each of them into 2 shapes here.
         if let Some((last_span, _)) = output.last_mut()
             && span == *last_span
         {
